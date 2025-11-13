@@ -62,7 +62,12 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
+        num_assets_to_include = len(assets)
 
+        if num_assets_to_include > 0:
+            equal_weight_value = 1.0 / num_assets_to_include
+            # Assign the equal weight to all included assets for all dates
+            self.portfolio_weights[assets] = equal_weight_value
         """
         TODO: Complete Task 1 Above
         """
@@ -113,7 +118,22 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
-
+        for i in range(self.lookback+1, len(df_returns)):  # MODIFIED LINE
+            # Get the returns for the lookback period
+            lookback_returns = df_returns[assets].iloc[i - self.lookback : i]
+            
+            # Calculate the standard deviation (volatility) of returns for each asset
+            # Adding a small epsilon to avoid division by zero if std is 0
+            volatilities = lookback_returns.std() + 1e-10 
+            
+            # Calculate the inverse of volatilities
+            inv_volatilities = 1 / volatilities
+            
+            # Normalize the inverse volatilities to get the weights
+            weights = inv_volatilities / inv_volatilities.sum()
+            
+            # Assign the calculated weights to the portfolio_weights DataFrame
+            self.portfolio_weights.loc[df_returns.index[i], assets] = weights
 
 
         """
@@ -188,10 +208,26 @@ class MeanVariancePortfolio:
                 TODO: Complete Task 3 Below
                 """
 
-                # Sample Code: Initialize Decision w and the Objective
-                # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # Decision variables: weights for each asset
+                # Weights are non-negative (lb=0.0) and individually cannot exceed 1.0 (ub=1.0).
+                # The name="w" helps in identifying variables if you print or write the model.
+                w = model.addMVar(shape=n, lb=0.0, ub=1.0, name="w")
+
+                # Objective function: Maximize mu'w - (gamma/2) * w'Sigma*w
+                # mu is a numpy array (n_assets,)
+                # Sigma is a numpy array (n_assets, n_assets)
+                # w is a Gurobi MVar object
+                # gamma is the risk aversion coefficient (passed as argument to mv_opt)
+                
+                # Gurobi's @ operator can be used for matrix-vector products
+                # involving MVars and numpy arrays.
+                # Corrected objective function according to the problem description
+                objective_expr = mu @ w - (gamma / 2.0) * (w @ Sigma @ w)
+                model.setObjective(objective_expr, gp.GRB.MAXIMIZE)
+
+                # Constraint: Sum of weights must be 1 (full investment)
+                # w.sum() calculates the sum of all elements in the MVar w.
+                model.addConstr(w.sum() == 1, name="budget_constraint")
 
                 """
                 TODO: Complete Task 3 Above
