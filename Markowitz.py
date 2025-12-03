@@ -193,7 +193,8 @@ class MeanVariancePortfolio:
 
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
-
+    def virtual_func():
+        pass
     def mv_opt(self, R_n, gamma):
         Sigma = R_n.cov().values
         mu = R_n.mean().values
